@@ -33,6 +33,30 @@ def cmd_scan(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_telegram_chat_id(_args: argparse.Namespace) -> int:
+    from dotenv import load_dotenv
+    import os
+
+    from jobfinder.notifications.telegram import fetch_chat_ids_from_updates
+
+    load_dotenv()
+    token = (os.getenv("TELEGRAM_BOT_TOKEN") or "").strip()
+    if not token or token.upper().startswith("YOUR_"):
+        print("Set TELEGRAM_BOT_TOKEN in .env to your real bot token from @BotFather.")
+        return 1
+    chats = fetch_chat_ids_from_updates(token)
+    if not chats:
+        print(
+            "No chats found. Open Telegram, find your bot, send any message (e.g. hi), then run this again."
+        )
+        return 1
+    print("Use one of these chat IDs in .env as TELEGRAM_CHAT_ID:\n")
+    for c in chats:
+        label = c.get("title") or c.get("username") or c.get("first_name") or "chat"
+        print(f"  TELEGRAM_CHAT_ID={c['chat_id']}  ({c.get('type')}: {label})")
+    return 0
+
+
 def cmd_telegram_test(_args: argparse.Namespace) -> int:
     from jobfinder.config import load_profile
     from jobfinder.notifications.telegram import TelegramNotifier
@@ -107,6 +131,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     tg_test = sub.add_parser("telegram-test", help="Send one test Telegram message")
     tg_test.set_defaults(func=cmd_telegram_test)
+
+    tg_chat = sub.add_parser(
+        "telegram-chat-id",
+        help="List chat IDs from getUpdates (message your bot first)",
+    )
+    tg_chat.set_defaults(func=cmd_telegram_chat_id)
 
     stats = sub.add_parser("stats", help="Show database statistics")
     stats.set_defaults(func=cmd_stats)

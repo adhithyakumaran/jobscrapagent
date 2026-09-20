@@ -27,11 +27,54 @@ class TelegramCredentials:
     chat_id: str
 
 
+def fetch_chat_ids_from_updates(bot_token: str) -> list[dict[str, Any]]:
+    """Return recent chat ids from getUpdates (message your bot first)."""
+    url = f"https://api.telegram.org/bot{bot_token}/getUpdates"
+    try:
+        with httpx.Client(timeout=20.0) as client:
+            resp = client.get(url)
+            if resp.status_code >= 400:
+                logger.warning("getUpdates failed: %s", resp.text[:200])
+                return []
+            data = resp.json()
+    except httpx.HTTPError as exc:
+        logger.warning("getUpdates error: %s", exc)
+        return []
+    if not data.get("ok"):
+        return []
+    seen: set[int] = set()
+    out: list[dict[str, Any]] = []
+    for item in data.get("result", []):
+        msg = item.get("message") or item.get("edited_message")
+        if not msg:
+            continue
+        chat = msg.get("chat") or {}
+        cid = chat.get("id")
+        if cid is None or cid in seen:
+            continue
+        seen.add(cid)
+        out.append(
+            {
+                "chat_id": cid,
+                "type": chat.get("type"),
+                "title": chat.get("title"),
+                "username": chat.get("username"),
+                "first_name": chat.get("first_name"),
+            }
+        )
+    return out
+
+
+def _is_placeholder(value: str) -> bool:
+    v = value.strip().upper()
+    return not v or v.startswith("YOUR_") or v in {"CHANGEME", "REPLACE_ME"}
+
+
 def load_telegram_credentials() -> TelegramCredentials | None:
     load_dotenv()
     token = (os.getenv("TELEGRAM_BOT_TOKEN") or "").strip()
     chat_id = (os.getenv("TELEGRAM_CHAT_ID") or "").strip()
-    if not token or not chat_id:
+    if _is_placeholder(token) or _is_placeholder(chat_id):
         return None
     return TelegramCredentials(bot_token=token, chat_id=chat_id)
 
