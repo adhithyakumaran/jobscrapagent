@@ -15,8 +15,11 @@ class EducationConfig(BaseModel):
 
 class TelegramConfig(BaseModel):
     enabled: bool = False
-    bot_token: str = ""
-    chat_id: str = ""
+    mode: str = "individual"  # individual | digest
+    min_relevance: float = 40.0
+    ui_url: str = "http://127.0.0.1:8765"
+    bot_token: str = ""  # use TELEGRAM_BOT_TOKEN in .env
+    chat_id: str = ""  # use TELEGRAM_CHAT_ID in .env
 
 
 class NotificationsConfig(BaseModel):

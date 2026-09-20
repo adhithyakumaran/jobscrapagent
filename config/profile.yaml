@@ -31,6 +31,9 @@ candidate:
 
 notifications:
   telegram:
-    enabled: false
+    enabled: true
+    mode: individual
+    min_relevance: 40
+    ui_url: "http://127.0.0.1:8765"
     bot_token: ""
     chat_id: ""

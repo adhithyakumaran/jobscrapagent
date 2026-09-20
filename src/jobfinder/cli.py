@@ -21,11 +21,31 @@ def _setup_logging(verbose: bool) -> None:
 def cmd_scan(args: argparse.Namespace) -> int:
     source = "mock" if args.mock else args.source
     try:
-        run_scan(source=source, mock=args.mock, max_intents=args.max_intents)
+        run_scan(
+            source=source,
+            mock=args.mock,
+            max_intents=args.max_intents,
+            notify=not args.no_notify,
+        )
     except RuntimeError as exc:
         print(exc)
         return 1
     return 0
+
+
+def cmd_telegram_test(_args: argparse.Namespace) -> int:
+    from jobfinder.config import load_profile
+    from jobfinder.notifications.telegram import TelegramNotifier
+    from jobfinder.storage.db import Database
+
+    profile = load_profile()
+    profile.notifications.telegram.enabled = True
+    notifier = TelegramNotifier(profile, Database())
+    if notifier.send_test_message():
+        print("Test message sent.")
+        return 0
+    print("Telegram not configured or send failed. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env")
+    return 1
 
 
 def cmd_stats(_args: argparse.Namespace) -> int:
@@ -82,7 +102,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Discovery source (default: linkedin)",
     )
     scan.add_argument("--max-intents", type=int, default=None, help="Cap search intents / query budget")
+    scan.add_argument("--no-notify", action="store_true", help="Skip Telegram notifications")
     scan.set_defaults(func=cmd_scan)
+
+    tg_test = sub.add_parser("telegram-test", help="Send one test Telegram message")
+    tg_test.set_defaults(func=cmd_telegram_test)
 
     stats = sub.add_parser("stats", help="Show database statistics")
     stats.set_defaults(func=cmd_stats)

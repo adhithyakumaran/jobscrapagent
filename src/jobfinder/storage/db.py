@@ -183,6 +183,22 @@ class Database:
             ignored = conn.execute("SELECT COUNT(*) FROM jobs WHERE status = 'ignored'").fetchone()[0]
         return {"total": total, "new": new, "seen": seen, "ignored": ignored}
 
+    def was_notified(self, job_id: str, channel: str) -> bool:
+        with self.connect() as conn:
+            cur = conn.execute(
+                "SELECT 1 FROM notifications WHERE job_id = ? AND channel = ?",
+                (job_id, channel),
+            )
+            return cur.fetchone() is not None
+
+    def record_notification(self, job_id: str, channel: str) -> None:
+        with self.connect() as conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO notifications (job_id, channel, sent_at) VALUES (?, ?, ?)",
+                (job_id, channel, utc_now().isoformat()),
+            )
+            conn.commit()
+
     def set_job_status(self, job_id: str, status: JobStatus) -> bool:
         with self.connect() as conn:
             cur = conn.execute(

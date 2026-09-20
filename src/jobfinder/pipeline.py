@@ -79,7 +79,10 @@ def _ingest_candidates(
     scorer: RelevanceEngine,
     dedup: DeduplicationService,
     stats: ScanStats,
-) -> None:
+) -> list:
+    from jobfinder.models import JobOpportunity
+
+    new_jobs: list[JobOpportunity] = []
     existing = db.all_jobs_for_dedup()
 
     for raw in raw_list:
@@ -146,6 +149,23 @@ def _ingest_candidates(
         db.insert_job(job)
         existing.append(job)
         stats.new_opportunities += 1
+        new_jobs.append(job)
+    return new_jobs
+
+
+def _send_telegram_notifications(
+    new_jobs: list,
+    profile: ProfileConfig,
+    db: Database,
+    stats: ScanStats,
+) -> None:
+    from jobfinder.notifications.telegram import TelegramNotifier
+
+    try:
+        notifier = TelegramNotifier(profile, db)
+        stats.telegram_notifications = notifier.notify_new_jobs(new_jobs)
+    except Exception as exc:
+        logger.warning("Telegram notifications failed (scan continues): %s", exc)
 
 
 def _log_scan_summary(source: str, stats: ScanStats) -> None:
@@ -170,6 +190,7 @@ def run_mock_scan(
     db: Database | None = None,
     profile: ProfileConfig | None = None,
     max_intents: int | None = None,
+    notify: bool = True,
 ) -> ScanStats:
     profile = profile or load_profile()
     db = db or Database()
@@ -186,7 +207,9 @@ def run_mock_scan(
     context = DiscoveryContext(intents=intents)
     raw_list = provider.discover(context)
     stats.candidates_discovered = len(raw_list)
-    _ingest_candidates(raw_list, profile, db, scorer, dedup, stats)
+    new_jobs = _ingest_candidates(raw_list, profile, db, scorer, dedup, stats)
+    if notify:
+        _send_telegram_notifications(new_jobs, profile, db, stats)
     _log_scan_summary(provider.name, stats)
 
     db.finish_search_run(
@@ -209,6 +232,7 @@ def run_linkedin_scan(
     db: Database | None = None,
     profile: ProfileConfig | None = None,
     max_intents: int | None = None,
+    notify: bool = True,
 ) -> ScanStats:
     profile = profile or load_profile()
     sources = load_sources()
@@ -257,7 +281,9 @@ def run_linkedin_scan(
             + (f" error={ps.error}" if ps.error else "")
         )
 
-    _ingest_candidates(raw_list, profile, db, scorer, dedup, stats)
+    new_jobs = _ingest_candidates(raw_list, profile, db, scorer, dedup, stats)
+    if notify:
+        _send_telegram_notifications(new_jobs, profile, db, stats)
     _log_scan_summary(provider.name, stats)
     print_linkedin_scan_report(stats)
 
@@ -291,9 +317,10 @@ def run_scan(
     source: str = "linkedin",
     mock: bool = False,
     max_intents: int | None = None,
+    notify: bool = True,
 ) -> ScanStats:
     if mock or source == "mock":
-        return run_mock_scan(max_intents=max_intents)
+        return run_mock_scan(max_intents=max_intents, notify=notify)
     if source == "linkedin":
-        return run_linkedin_scan(max_intents=max_intents)
+        return run_linkedin_scan(max_intents=max_intents, notify=notify)
     raise ValueError(f"Unknown source: {source}")
