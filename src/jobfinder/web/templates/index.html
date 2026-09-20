@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Job Finder</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 1rem 1.5rem; background: #f6f6f8; color: #222; }
+    h1 { font-size: 1.35rem; margin-bottom: 0.25rem; }
+    .sub { color: #555; font-size: 0.9rem; margin-bottom: 1rem; }
+    .filters { background: #fff; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #ddd; }
+    .filters label { margin-right: 0.5rem; font-size: 0.85rem; }
+    .filters input, .filters select { margin-right: 0.75rem; padding: 0.25rem 0.4rem; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; font-size: 0.88rem; }
+    th, td { padding: 0.5rem 0.6rem; text-align: left; border-bottom: 1px solid #eee; vertical-align: top; }
+    th { background: #eef0f4; font-weight: 600; }
+    tr:hover td { background: #fafbfc; }
+    .actions form { display: inline; margin-right: 0.25rem; }
+    button, .btn { font-size: 0.8rem; padding: 0.2rem 0.45rem; cursor: pointer; }
+    a.btn { text-decoration: none; color: #0645ad; border: 1px solid #aaa; border-radius: 4px; padding: 0.2rem 0.45rem; background: #fff; }
+    .pill { display: inline-block; background: #e8f4ea; color: #1a5c2e; padding: 0.1rem 0.35rem; border-radius: 4px; font-size: 0.75rem; }
+  </style>
+</head>
+<body>
+  <h1>Personal Job Finder</h1>
+  <p class="sub">Phase 1 — mock discovery. Prioritize fresh, relevant leads.</p>
+
+  <form class="filters" method="get" action="/">
+    <label>View</label>
+    <select name="filter">
+      <option value="new" {% if filter == 'new' %}selected{% endif %}>New jobs</option>
+      <option value="today" {% if filter == 'today' %}selected{% endif %}>Today</option>
+      <option value="3days" {% if filter == '3days' %}selected{% endif %}>Last 3 days</option>
+      <option value="all" {% if filter == 'all' %}selected{% endif %}>All</option>
+    </select>
+    <label>Location</label>
+    <input type="text" name="location" value="{{ location }}" placeholder="Chennai" />
+    <label>Domain</label>
+    <input type="text" name="domain" value="{{ domain }}" placeholder="Software" />
+    <label>Source</label>
+    <input type="text" name="source" value="{{ source }}" placeholder="linkedin" />
+    <label>Min relevance</label>
+    <input type="number" name="min_relevance" value="{{ min_relevance }}" min="0" max="100" step="1" style="width:4rem" />
+    <label><input type="checkbox" name="fresher" value="true" {% if fresher %}checked{% endif %} /> Fresher</label>
+    <button type="submit">Apply</button>
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Fresh</th>
+        <th>Company</th>
+        <th>Title</th>
+        <th>Location</th>
+        <th>Exp</th>
+        <th>Source</th>
+        <th>Posted</th>
+        <th>Rel.</th>
+        <th>Apply</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for j in jobs %}
+      <tr>
+        <td>{{ j.freshness }}</td>
+        <td>{{ j.company }}</td>
+        <td>{{ j.title }}</td>
+        <td>{{ j.location }}</td>
+        <td>{{ j.experience }}</td>
+        <td><span class="pill">{{ j.source }}</span></td>
+        <td>{{ j.posted }}</td>
+        <td>{{ j.relevance }}</td>
+        <td>{{ j.application_method }}</td>
+        <td class="actions">
+          <a class="btn" href="{{ j.source_url }}" target="_blank" rel="noopener">Open</a>
+          <a class="btn" href="{{ j.application_url }}" target="_blank" rel="noopener">Apply</a>
+          <form method="post" action="/jobs/{{ j.id }}/seen"><button type="submit">Seen</button></form>
+          <form method="post" action="/jobs/{{ j.id }}/ignore"><button type="submit">Ignore</button></form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="10">No jobs match. Run <code>python -m jobfinder scan --mock</code>.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

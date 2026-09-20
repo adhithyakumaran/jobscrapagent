@@ -1,0 +1,36 @@
+candidate:
+  experience_level:
+    - fresher
+    - entry_level
+    - 0_1_year
+
+  education:
+    degree: "Engineering"
+    branch: "ECE"
+    graduation_year: 2026
+
+  locations:
+    - Chennai
+    - Remote India
+
+  target_domains:
+    - any
+
+  preferred_roles:
+    - any
+
+  excluded_keywords:
+    - senior
+    - lead
+    - manager
+    - director
+    - principal
+    - 5+ years
+    - 7+ years
+    - 10+ years
+
+notifications:
+  telegram:
+    enabled: false
+    bot_token: ""
+    chat_id: ""
