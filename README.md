@@ -18,6 +18,28 @@ cp .env.example .env      # then edit .env with your Telegram token and chat id
 
 Until you run `pip install -e .` inside the repo, `python -m jobfinder` will fail with **No module named jobfinder**.
 
+### Windows (Git Bash) troubleshooting
+
+1. **Update the repo** (fixes `requires Python 3.11` on older clones):
+   ```bash
+   git pull origin main
+   ```
+2. **Remove a broken venv** if `activate` is missing (e.g. you interrupted `python -m venv`):
+   ```bash
+   rm -rf .venv
+   python -m venv .venv
+   ```
+   Wait until venv finishes; do not press Ctrl+C during `ensurepip`.
+3. **Activate** (Git Bash — use forward slashes, `source`, not a bare `C:\...` path):
+   ```bash
+   source .venv/Scripts/activate
+   ```
+4. **No venv** (works if venv keeps failing): from the repo root,
+   ```bash
+   pip install -e ".[dev]"
+   ```
+   Use the same `python` you will run for `python -m jobfinder`.
+
 Edit `config/profile.yaml` for your locations, domains, roles, and exclusions (use `any` for broad coverage).
 
 ## Commands
