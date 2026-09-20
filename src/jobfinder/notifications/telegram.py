@@ -10,6 +10,8 @@ import httpx
 from dotenv import load_dotenv
 
 from jobfinder.actionable import APPLICATION_METHOD_LABELS, build_job_actions
+from jobfinder.freshness import is_fresh_opportunity
+from jobfinder.url_validation import is_valid_apply_url, is_valid_linkedin_url
 from jobfinder.config import ProfileConfig, TelegramConfig
 from jobfinder.freshness import FRESHNESS_LABELS
 from jobfinder.models import JobOpportunity
@@ -184,21 +186,36 @@ def format_job_message(job: JobOpportunity) -> str:
     return "\n".join(lines)
 
 
+def _button_url(url: str | None, *, linkedin_only: bool = False, apply: bool = False) -> str | None:
+    if apply:
+        return url if is_valid_apply_url(url) else None
+    if linkedin_only:
+        return url if is_valid_linkedin_url(url) else None
+    return None
+
+
 def build_inline_keyboard(job: JobOpportunity) -> dict[str, Any] | None:
     actions = build_job_actions(job)
     row1: list[dict[str, str]] = []
-    row2: list[dict[str, str]] = []
 
-    if actions["show_apply"] and actions["apply_url"]:
-        row1.append({"text": "Apply", "url": actions["apply_url"]})
-    if actions["open_url"]:
-        row1.append({"text": actions["open_label"], "url": actions["open_url"]})
-    if actions["mailto"] and actions["email_label"]:
-        row2.append({"text": actions["email_label"], "url": actions["mailto"]})
-    if job.source_url and actions["open_url"] and job.source_url != actions["open_url"]:
-        row2.append({"text": "Original", "url": job.source_url})
+    apply_url = _button_url(actions.get("apply_url"), apply=True)
+    if apply_url:
+        row1.append({"text": "Apply", "url": apply_url})
 
-    buttons = [r for r in (row1, row2) if r]
+    open_url = actions.get("open_url")
+    open_label = actions.get("open_label") or "Open"
+    is_post = job.discovery_kind == "hiring_post" or (
+        open_url and "/posts/" in open_url
+    )
+    is_job = job.discovery_kind == "job_listing" or (
+        open_url and "/jobs/view/" in (open_url or "")
+    )
+    if open_url and (is_post or is_job):
+        linkedin_url = _button_url(open_url, linkedin_only=True)
+        if linkedin_url:
+            row1.append({"text": open_label, "url": linkedin_url})
+
+    buttons = [r for r in (row1,) if r]
     if not buttons:
         return None
     return {"inline_keyboard": buttons}
@@ -233,6 +250,8 @@ def qualifies_for_notification(
     if not job.id:
         return False
     if db.was_notified(job.id, CHANNEL):
+        return False
+    if not is_fresh_opportunity(job.posted_at, profile.freshness_days):
         return False
     return True
 
@@ -276,19 +295,20 @@ class TelegramNotifier:
             logger.warning("Telegram send failed: %s", exc)
             return False
 
-    def notify_new_jobs(self, jobs: list[JobOpportunity]) -> int:
+    def notify_new_jobs(self, jobs: list[JobOpportunity]) -> tuple[int, int]:
         if not telegram_is_active(self.profile):
-            return 0
+            return 0, 0
         creds = load_telegram_credentials()
         if not creds:
-            return 0
+            return 0, 0
 
         cfg = self.profile.notifications.telegram
         eligible = [j for j in jobs if qualifies_for_notification(j, self.profile, self.db)]
         if not eligible:
-            return 0
+            return 0, 0
 
         sent = 0
+        failures = 0
         if cfg.mode == "digest":
             text = format_digest_message(eligible, ui_url=cfg.ui_url)
             ok = self._send_fn(creds.bot_token, creds.chat_id, text, None)
@@ -296,7 +316,9 @@ class TelegramNotifier:
                 for job in eligible:
                     self.db.record_notification(job.id, CHANNEL)
                 sent = len(eligible)
-            return sent
+            else:
+                failures = len(eligible)
+            return sent, failures
 
         for job in eligible:
             text = format_job_message(job)
@@ -306,8 +328,9 @@ class TelegramNotifier:
                 self.db.record_notification(job.id, CHANNEL)
                 sent += 1
             else:
+                failures += 1
                 logger.warning("Skipped recording notification for %s after send failure", job.id)
-        return sent
+        return sent, failures
 
     def send_test_message(self) -> bool:
         if not telegram_is_active(self.profile):

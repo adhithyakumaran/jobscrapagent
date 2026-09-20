@@ -1,3 +1,5 @@
+freshness_days: 30
+
 candidate:
   experience_level:
     - fresher

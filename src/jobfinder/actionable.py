@@ -3,6 +3,7 @@ from __future__ import annotations
 from urllib.parse import quote_plus
 
 from jobfinder.models import JobOpportunity
+from jobfinder.url_validation import is_valid_apply_url, is_valid_http_url, is_valid_linkedin_url
 
 APPLICATION_METHOD_LABELS = {
     "dm_resume": "LinkedIn DM",
@@ -116,8 +117,14 @@ def build_job_actions(job: JobOpportunity) -> dict:
     else:
         open_label = "Open Original"
 
-    open_url = linkedin_url or job.source_url
-    apply_url = job.application_url if is_apply_link(job) else None
+    open_candidate = linkedin_url or job.source_url
+    if is_post or is_job:
+        open_url = open_candidate if is_valid_linkedin_url(open_candidate) else None
+    else:
+        open_url = open_candidate if is_valid_http_url(open_candidate) else None
+
+    raw_apply = job.application_url if is_apply_link(job) else None
+    apply_url = raw_apply if is_valid_apply_url(raw_apply) else None
     email = job.contact_email
     mailto = f"mailto:{email}" if email else None
 

@@ -9,7 +9,7 @@ from urllib.parse import quote_plus, urljoin
 from bs4 import BeautifulSoup
 
 from jobfinder.extraction.hiring import analyze_hiring_text, split_multi_role_post
-from jobfinder.extraction.posted_time import parse_relative_posted
+from jobfinder.extraction.posted_time import parse_posted_time
 from jobfinder.models import RawCandidate
 
 JOB_CARD_RE = re.compile(r"base-card|job-search-card|jobs-search__results-list")
@@ -55,9 +55,9 @@ def parse_job_listing_html(html: str, source: str = "linkedin") -> list[RawCandi
                 try:
                     posted = datetime.fromisoformat(dt_attr.replace("Z", "+00:00"))
                 except ValueError:
-                    posted = parse_relative_posted(time_el.get_text(strip=True))
+                    posted = parse_posted_time(time_el.get_text(strip=True))
             else:
-                posted = parse_relative_posted(time_el.get_text(strip=True))
+                posted = parse_posted_time(time_el.get_text(strip=True))
         desc = card.get_text(" ", strip=True)
         results.append(
             RawCandidate(
@@ -113,9 +113,9 @@ def parse_job_detail_html(html: str, url: str, source: str = "linkedin") -> RawC
             try:
                 posted = datetime.fromisoformat(time_el["datetime"].replace("Z", "+00:00"))
             except ValueError:
-                posted = parse_relative_posted(time_el.get_text(strip=True))
+                posted = parse_posted_time(time_el.get_text(strip=True))
         else:
-            posted = parse_relative_posted(time_el.get_text(strip=True))
+            posted = parse_posted_time(time_el.get_text(strip=True))
 
     apply_el = soup.select_one("a[data-tracking-control-name='public_jobs_apply-link'], a.jobs-apply-button")
     app_url = None
@@ -180,9 +180,9 @@ def parse_hiring_post_html(
             try:
                 posted = datetime.fromisoformat(time_el["datetime"].replace("Z", "+00:00"))
             except ValueError:
-                posted = parse_relative_posted(time_el.get_text(strip=True))
+                posted = parse_posted_time(time_el.get_text(strip=True))
         else:
-            posted = parse_relative_posted(time_el.get_text(strip=True))
+            posted = parse_posted_time(time_el.get_text(strip=True))
 
     analysis = analyze_hiring_text(text, location_hints=location_hints, company_hint=company_hint)
     if not analysis.is_hiring_related:

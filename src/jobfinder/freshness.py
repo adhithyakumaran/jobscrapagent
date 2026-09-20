@@ -1,8 +1,18 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from enum import Enum
 
 from jobfinder.models import FreshnessBucket
+
+
+class FreshnessGate(str, Enum):
+    FRESH = "fresh"
+    STALE = "stale"
+    UNKNOWN = "unknown"
+
+
+DEFAULT_FRESHNESS_DAYS = 30
 
 
 def utc_now() -> datetime:
@@ -49,3 +59,27 @@ FRESHNESS_EMOJI = {
     FreshnessBucket.RECENT: "🟡",
     FreshnessBucket.OLDER: "⚪",
 }
+
+
+def classify_freshness(
+    posted_at: datetime | None,
+    freshness_days: int = DEFAULT_FRESHNESS_DAYS,
+    reference: datetime | None = None,
+) -> FreshnessGate:
+    """30-day window: inclusive through freshness_days; unknown if no posted_at."""
+    if posted_at is None:
+        return FreshnessGate.UNKNOWN
+    posted = ensure_aware(posted_at)
+    ref = ensure_aware(reference or utc_now())
+    cutoff = ref - timedelta(days=freshness_days)
+    if posted < cutoff:
+        return FreshnessGate.STALE
+    return FreshnessGate.FRESH
+
+
+def is_fresh_opportunity(
+    posted_at: datetime | None,
+    freshness_days: int = DEFAULT_FRESHNESS_DAYS,
+    reference: datetime | None = None,
+) -> bool:
+    return classify_freshness(posted_at, freshness_days, reference) == FreshnessGate.FRESH

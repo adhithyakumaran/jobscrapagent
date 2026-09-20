@@ -12,6 +12,7 @@ from jobfinder.discovery.mock import MockDiscoveryProvider
 from jobfinder.discovery.planner import plan_search_intents
 from jobfinder.extraction.hiring import analyze_hiring_text
 from jobfinder.actionable import has_actionable_path
+from jobfinder.freshness import FreshnessGate, classify_freshness
 from jobfinder.extraction.normalizer import raw_to_opportunity
 from jobfinder.matching.intents import generate_search_intents
 from jobfinder.matching.relevance import RelevanceEngine
@@ -38,6 +39,12 @@ class ScanStats:
     new_opportunities: int = 0
     high_confidence: int = 0
     telegram_notifications: int = 0
+    telegram_notification_failures: int = 0
+    fresh: int = 0
+    stale: int = 0
+    unknown_date: int = 0
+    freshness_rejected: int = 0
+    provider_results: dict = field(default_factory=dict)
     formal_jobs: int = 0
     hiring_posts: int = 0
     high_hiring_signal: int = 0
@@ -48,12 +55,32 @@ class ScanStats:
     notes: list[str] = field(default_factory=list)
 
 
+def _format_provider_result(name: str, stats: ScanStats) -> str:
+    ps = stats.provider_results.get(name)
+    if not ps:
+        return "not run"
+    parts = [
+        f"success={ps.success}",
+        f"candidates={ps.candidates}",
+        f"pages={ps.pages_fetched}",
+        f"rate_limits={ps.rate_limit_hits}",
+    ]
+    if ps.error:
+        parts.append(f"error={ps.error}")
+    return " ".join(parts)
+
+
 def print_linkedin_scan_report(stats: ScanStats) -> None:
     print("\nLinkedIn Scan\n")
     print(f"Listing intents:\n{stats.listing_intents}\n")
     print(f"Post intents:\n{stats.post_intents}\n")
     print(f"Pages searched:\n{stats.pages_searched}\n")
     print(f"Candidates:\n{stats.candidates_discovered}\n")
+    print(f"Parsed:\n{stats.parsed}\n")
+    print(f"Fresh:\n{stats.fresh}\n")
+    print(f"Stale:\n{stats.stale}\n")
+    print(f"Unknown date:\n{stats.unknown_date}\n")
+    print(f"Freshness rejected:\n{stats.freshness_rejected}\n")
     print(f"Formal jobs:\n{stats.formal_jobs}\n")
     print(f"Hiring posts:\n{stats.hiring_posts}\n")
     print(f"High hiring signal:\n{stats.high_hiring_signal}\n")
@@ -62,6 +89,11 @@ def print_linkedin_scan_report(stats: ScanStats) -> None:
     print(f"Rejected:\n{stats.rejected}\n")
     print(f"Duplicates:\n{stats.duplicates}\n")
     print(f"New opportunities:\n{stats.new_opportunities}\n")
+    print(f"Telegram notifications:\n{stats.telegram_notifications}\n")
+    print(f"Telegram notification failures:\n{stats.telegram_notification_failures}\n")
+    print(f"linkedin_playwright:\n{_format_provider_result('linkedin_playwright', stats)}\n")
+    print(f"linkedin_guest:\n{_format_provider_result('linkedin_guest', stats)}\n")
+    print(f"linkedin_indexed:\n{_format_provider_result('linkedin_indexed', stats)}\n")
     if stats.rate_limit_hits:
         print(f"Rate limit backoffs:\n{stats.rate_limit_hits}\n")
 
@@ -102,6 +134,20 @@ def _ingest_candidates(
         stats.parsed += 1
 
         if not has_actionable_path(job):
+            stats.rejected += 1
+            continue
+
+        gate = classify_freshness(job.posted_at, profile.freshness_days)
+        if gate == FreshnessGate.FRESH:
+            stats.fresh += 1
+        elif gate == FreshnessGate.STALE:
+            stats.stale += 1
+            stats.freshness_rejected += 1
+            stats.rejected += 1
+            continue
+        else:
+            stats.unknown_date += 1
+            stats.freshness_rejected += 1
             stats.rejected += 1
             continue
 
@@ -163,7 +209,9 @@ def _send_telegram_notifications(
 
     try:
         notifier = TelegramNotifier(profile, db)
-        stats.telegram_notifications = notifier.notify_new_jobs(new_jobs)
+        sent, failed = notifier.notify_new_jobs(new_jobs)
+        stats.telegram_notifications = sent
+        stats.telegram_notification_failures = failed
     except Exception as exc:
         logger.warning("Telegram notifications failed (scan continues): %s", exc)
 
@@ -181,7 +229,12 @@ def _log_scan_summary(source: str, stats: ScanStats) -> None:
     logger.info("Duplicates: %s", stats.duplicates)
     logger.info("New opportunities: %s", stats.new_opportunities)
     logger.info("High-confidence: %s", stats.high_confidence)
+    logger.info("Fresh: %s", stats.fresh)
+    logger.info("Stale: %s", stats.stale)
+    logger.info("Unknown date: %s", stats.unknown_date)
+    logger.info("Freshness rejected: %s", stats.freshness_rejected)
     logger.info("Telegram notifications: %s", stats.telegram_notifications)
+    logger.info("Telegram notification failures: %s", stats.telegram_notification_failures)
     for note in stats.provider_notes:
         logger.info("  %s", note)
 
@@ -273,6 +326,7 @@ def run_linkedin_scan(
     raw_list, provider_stats = provider.discover(context)
     stats.candidates_discovered = len(raw_list)
     for ps in provider_stats:
+        stats.provider_results[ps.provider] = ps
         stats.pages_searched += ps.pages_fetched
         stats.rate_limit_hits += ps.rate_limit_hits
         stats.provider_notes.append(

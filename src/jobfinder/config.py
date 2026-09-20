@@ -36,6 +36,7 @@ class CandidateConfig(BaseModel):
 
 
 class ProfileConfig(BaseModel):
+    freshness_days: int = 30
     candidate: CandidateConfig = Field(default_factory=CandidateConfig)
     notifications: NotificationsConfig = Field(default_factory=NotificationsConfig)
 

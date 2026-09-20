@@ -14,8 +14,10 @@ from jobfinder.notifications.telegram import (
     qualifies_for_notification,
     telegram_is_active,
 )
+from jobfinder.freshness import utc_now
 from jobfinder.pipeline import run_mock_scan
 from jobfinder.storage.db import Database
+from datetime import timedelta
 
 
 def _profile(enabled: bool = True, min_rel: float = 40.0) -> ProfileConfig:
@@ -50,6 +52,7 @@ def test_qualifies_new_job(tmp_path: Path):
         location="Chennai",
         relevance_score=50.0,
         discovery_kind="job_listing",
+        posted_at=utc_now() - timedelta(days=2),
     )
     assert qualifies_for_notification(job, _profile(), db)
 
@@ -119,7 +122,7 @@ def test_inline_keyboard_post():
     assert any("Open LinkedIn Post" in b["text"] for row in kb["inline_keyboard"] for b in row)
 
 
-def test_email_button():
+def test_email_not_url_button():
     job = JobOpportunity(
         source="linkedin",
         source_url="https://www.linkedin.com/posts/e",
@@ -129,7 +132,12 @@ def test_email_button():
         discovery_kind="hiring_post",
     )
     kb = build_inline_keyboard(job)
-    assert any("Email" in b["text"] for row in kb["inline_keyboard"] for b in row)
+    assert kb is not None
+    labels = [b["text"] for row in kb["inline_keyboard"] for b in row]
+    assert "Email Recruiter" not in labels
+    assert "Open LinkedIn Post" in labels
+    msg = format_job_message(job)
+    assert "careers@co.example" in msg
 
 
 def test_notifier_sends_and_records(tmp_path: Path, monkeypatch):
@@ -153,10 +161,12 @@ def test_notifier_sends_and_records(tmp_path: Path, monkeypatch):
         relevance_score=86.0,
         is_fresher=True,
         discovery_kind="job_listing",
+        posted_at=utc_now() - timedelta(hours=5),
     )
     n = TelegramNotifier(_profile(), db, send_fn=fake_send)
-    count = n.notify_new_jobs([job])
+    count, failures = n.notify_new_jobs([job])
     assert count == 1
+    assert failures == 0
     assert db.was_notified("new1", CHANNEL)
     assert "NEW JOB" in sent[0]
 
@@ -179,10 +189,11 @@ def test_notifier_no_duplicate_send(tmp_path: Path, monkeypatch):
         source_url="https://www.linkedin.com/jobs/view/1",
         relevance_score=90.0,
         discovery_kind="job_listing",
+        posted_at=utc_now() - timedelta(hours=5),
     )
     n = TelegramNotifier(_profile(), db, send_fn=fake_send)
-    assert n.notify_new_jobs([job]) == 1
-    assert n.notify_new_jobs([job]) == 0
+    assert n.notify_new_jobs([job]) == (1, 0)
+    assert n.notify_new_jobs([job]) == (0, 0)
     assert calls == 1
 
 
@@ -203,9 +214,10 @@ def test_telegram_failure_does_not_fail_scan(tmp_path: Path, monkeypatch):
         source_url="https://www.linkedin.com/jobs/view/x",
         relevance_score=90,
         discovery_kind="job_listing",
+        posted_at=utc_now() - timedelta(hours=5),
     )
     n = TelegramNotifier(profile, db, send_fn=fail_send)
-    assert n.notify_new_jobs([job]) == 0
+    assert n.notify_new_jobs([job]) == (0, 1)
     assert stats.new_opportunities >= 0
 
 
