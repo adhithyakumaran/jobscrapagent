@@ -26,7 +26,7 @@ def test_email_resume():
 
 def test_multiple_roles():
     text = "We have openings for Java, QA and support. Freshers can apply."
-    parts = split_multi_role_post(text, "https://linkedin.com/posts/x", "linkedin")
+    parts = split_multi_role_post(text)
     assert len(parts) == 3
 
 

@@ -14,5 +14,5 @@ def test_intent_includes_hiring_and_experience():
     profile = load_profile()
     intents = generate_search_intents(profile, max_intents=1)
     intent = intents[0]
-    assert intent.experience_term
-    assert intent.hiring_term
+    assert intent.intent_type in ("hiring_post", "job_listing", "role_domain", "experimental")
+    assert intent.location

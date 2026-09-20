@@ -2,13 +2,23 @@ linkedin:
   enabled: true
   max_pages_per_intent: 1
   max_results_per_intent: 15
-  detail_fetch_limit_per_intent: 8
+  detail_fetch_limit_per_intent: 6
+  max_post_pages_per_intent: 2
+  max_posts_per_intent: 8
   delay_seconds: 2
+  rate_limit_backoff_seconds: 8
+  rate_limit_max_retries: 3
   intent_budget_per_run: 24
+  intent_mix:
+    hiring_post: 0.30
+    job_listing: 0.40
+    role_domain: 0.20
+    experimental: 0.10
   source_relevance_boost: 3.0
   providers:
-    - guest
     - playwright
+    - session
+    - guest
     - indexed
   session_cookie_file: ""
   playwright_headless: true

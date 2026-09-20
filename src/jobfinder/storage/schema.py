@@ -27,7 +27,11 @@ CREATE TABLE IF NOT EXISTS jobs (
     status TEXT NOT NULL DEFAULT 'new',
     freshness_bucket TEXT,
     alternate_source_urls TEXT,
-    discovery_kind TEXT
+    discovery_kind TEXT,
+    hiring_signal_strength TEXT,
+    source_post_url TEXT,
+    recruiter_name TEXT,
+    salary_text TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_posted ON jobs(posted_at);

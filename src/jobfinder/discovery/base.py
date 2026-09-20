@@ -15,6 +15,7 @@ class ProviderRunStats:
     intents_executed: int = 0
     pages_fetched: int = 0
     candidates: int = 0
+    rate_limit_hits: int = 0
 
 
 @dataclass

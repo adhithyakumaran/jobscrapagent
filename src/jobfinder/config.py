@@ -63,15 +63,29 @@ def is_any(values: list[str]) -> bool:
     return "any" in normalized or "*" in normalized
 
 
+class IntentMixConfig(BaseModel):
+    hiring_post: float = 0.30
+    job_listing: float = 0.40
+    role_domain: float = 0.20
+    experimental: float = 0.10
+
+
 class LinkedInSourceConfig(BaseModel):
     enabled: bool = True
     max_pages_per_intent: int = 3
     max_results_per_intent: int = 50
     detail_fetch_limit_per_intent: int = 10
+    max_post_pages_per_intent: int = 2
+    max_posts_per_intent: int = 8
     delay_seconds: float = 2.0
+    rate_limit_backoff_seconds: float = 8.0
+    rate_limit_max_retries: int = 3
     intent_budget_per_run: int = 24
+    intent_mix: IntentMixConfig = Field(default_factory=IntentMixConfig)
     source_relevance_boost: float = 3.0
-    providers: list[str] = Field(default_factory=lambda: ["guest", "playwright", "indexed"])
+    providers: list[str] = Field(
+        default_factory=lambda: ["playwright", "session", "guest", "indexed"]
+    )
     session_cookie_file: str = ""
     playwright_headless: bool = True
     indexed_search_engine: str = "duckduckgo"

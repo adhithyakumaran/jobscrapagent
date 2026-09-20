@@ -19,6 +19,7 @@ def raw_to_opportunity(raw: RawCandidate) -> JobOpportunity:
         text,
         company_hint=raw.company_hint,
         title_hint=raw.title_hint,
+        recruiter_hint=raw.recruiter_hint,
         location_hints=[raw.location_hint] if raw.location_hint else None,
     )
 
@@ -40,33 +41,34 @@ def raw_to_opportunity(raw: RawCandidate) -> JobOpportunity:
     if analysis.is_entry_level:
         is_entry = True
 
+    strength = raw.hiring_signal_strength or analysis.hiring_signal_strength
     signal = analysis.hiring_signal or detect_hiring_signal(text)
+
     kind = raw.discovery_kind
     if not kind:
-        if signal == "formal_job" or (raw.source_url and "/jobs/view/" in raw.source_url):
+        if raw.source_url and "/jobs/view/" in raw.source_url:
             kind = "job_listing"
         else:
             kind = "hiring_post" if signal else None
 
-    title = raw.title_hint or analysis.job_title
-    company = raw.company_hint or analysis.company_name
-    location = raw.location_hint or analysis.location
-
     posted = raw.posted_at
-
     skills = raw.skills_hint or analysis.skills or None
+
+    post_url = raw.source_post_url or (
+        raw.source_url.split("#")[0] if raw.source_url and "/posts/" in raw.source_url else None
+    )
 
     job = JobOpportunity(
         id=str(uuid.uuid4()),
         source=raw.source,
         source_url=raw.source_url,
-        company_name=company,
-        job_title=title,
+        company_name=raw.company_hint or analysis.company_name,
+        job_title=raw.title_hint or analysis.job_title,
         description=text,
-        location=location,
+        location=raw.location_hint or analysis.location,
         experience_min=exp_min,
         experience_max=exp_max,
-        employment_type=raw.employment_type_hint,
+        employment_type=raw.employment_type_hint or analysis.employment_type,
         domain=raw.domain_hint,
         skills=skills,
         posted_at=posted,
@@ -78,7 +80,11 @@ def raw_to_opportunity(raw: RawCandidate) -> JobOpportunity:
         is_fresher=is_fresher,
         is_entry_level=is_entry,
         hiring_signal=signal,
+        hiring_signal_strength=strength,
         discovery_kind=kind,
+        source_post_url=post_url,
+        recruiter_name=raw.recruiter_hint or analysis.recruiter_name,
+        salary_text=raw.salary_hint or analysis.salary_text,
         freshness_bucket=freshness_bucket(posted) if posted else None,
     )
     return job

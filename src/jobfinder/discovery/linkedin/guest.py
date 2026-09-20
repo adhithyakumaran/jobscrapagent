@@ -4,7 +4,8 @@ import logging
 
 from jobfinder.config import LinkedInSourceConfig
 from jobfinder.discovery.base import DiscoveryContext, ProviderRunStats
-from jobfinder.discovery.linkedin.http_client import fetch_url
+from jobfinder.discovery.linkedin.http_client import fetch_with_backoff
+from jobfinder.discovery.linkedin.intent_filter import intents_for_listings
 from jobfinder.extraction.linkedin import (
     build_jobs_search_url,
     parse_job_detail_html,
@@ -27,19 +28,28 @@ class LinkedInGuestProvider:
     ) -> tuple[list[RawCandidate], ProviderRunStats]:
         stats = ProviderRunStats(provider=self.name)
         results: list[RawCandidate] = []
-        detail_limit = self.config.detail_fetch_limit_per_intent
+        intents = intents_for_listings(context.intents)
+        if not intents:
+            stats.success = True
+            return results, stats
         try:
-            for intent in context.intents:
+            for intent in intents:
                 stats.intents_executed += 1
                 collected = 0
                 details_fetched = 0
                 for page in range(self.config.max_pages_per_intent):
                     start = page * 25
                     url = build_jobs_search_url(intent.query_string(), intent.location, start=start)
-                    fetched = fetch_url(url, delay=self.config.delay_seconds)
+                    fetched, hits = fetch_with_backoff(
+                        url,
+                        delay=self.config.delay_seconds,
+                        backoff_base=self.config.rate_limit_backoff_seconds,
+                        max_retries=self.config.rate_limit_max_retries,
+                    )
+                    stats.rate_limit_hits += hits
                     stats.pages_fetched += 1
                     if fetched.rate_limited:
-                        logger.warning("Guest provider rate limited on search")
+                        logger.warning("Guest listing search rate limited — skipping intent")
                         break
                     if not fetched.html:
                         break
@@ -50,11 +60,17 @@ class LinkedInGuestProvider:
                         if cand.source_url in context.seen_urls:
                             continue
                         context.seen_urls.add(cand.source_url)
-                        if details_fetched < detail_limit:
-                            detail = fetch_url(cand.source_url, delay=self.config.delay_seconds)
+                        if details_fetched < self.config.detail_fetch_limit_per_intent:
+                            detail, dhits = fetch_with_backoff(
+                                cand.source_url,
+                                delay=self.config.delay_seconds,
+                                backoff_base=self.config.rate_limit_backoff_seconds,
+                                max_retries=self.config.rate_limit_max_retries,
+                            )
+                            stats.rate_limit_hits += dhits
                             stats.pages_fetched += 1
                             if detail.rate_limited:
-                                logger.warning("Guest provider rate limited on job detail")
+                                logger.warning("Guest job detail rate limited — using listing card")
                                 results.append(cand)
                                 collected += 1
                                 break
@@ -70,7 +86,7 @@ class LinkedInGuestProvider:
                     if collected >= self.config.max_results_per_intent:
                         break
             stats.candidates = len(results)
-            stats.success = len(results) > 0
+            stats.success = True
         except Exception as exc:
             stats.success = False
             stats.error = str(exc)

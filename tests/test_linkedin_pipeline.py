@@ -59,7 +59,12 @@ def test_provider_failure_fallback():
     comp._providers = [FailProvider(), FailProvider()]
     ctx = DiscoveryContext(
         intents=[
-            SearchIntent("fresher", "hiring", "Chennai", "any", "any"),
+            SearchIntent(
+                intent_type="job_listing",
+                location="Chennai",
+                experience_term="fresher",
+                hiring_term="hiring",
+            ),
         ]
     )
     results, stats = comp.discover(ctx)

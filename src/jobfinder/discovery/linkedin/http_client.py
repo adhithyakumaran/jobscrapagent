@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_HEADERS = {
     "User-Agent": (
@@ -63,3 +66,24 @@ def fetch_url(
             return FetchResult(resp.text, resp.status_code)
     except httpx.HTTPError:
         return FetchResult(None, None)
+
+
+def fetch_with_backoff(
+    url: str,
+    *,
+    delay: float = 0,
+    extra_headers: dict[str, str] | None = None,
+    backoff_base: float = 8.0,
+    max_retries: int = 3,
+) -> tuple[FetchResult, int]:
+    """Returns (result, rate_limit_hits)."""
+    hits = 0
+    for attempt in range(max_retries):
+        result = fetch_url(url, delay=delay if attempt == 0 else 0, extra_headers=extra_headers)
+        if not result.rate_limited:
+            return result, hits
+        hits += 1
+        wait = backoff_base * (2 ** attempt)
+        logger.warning("Rate limited (429) on %s — backing off %.1fs", url[:80], wait)
+        time.sleep(wait)
+    return result, hits

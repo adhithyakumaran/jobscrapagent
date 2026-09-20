@@ -29,8 +29,16 @@ class Database:
             conn.executescript(SEARCH_RUNS_TABLE)
             conn.executescript(NOTIFICATIONS_TABLE)
             cols = {row[1] for row in conn.execute("PRAGMA table_info(jobs)")}
-            if "discovery_kind" not in cols:
-                conn.execute("ALTER TABLE jobs ADD COLUMN discovery_kind TEXT")
+            for col, ddl in (
+                ("discovery_kind", "ALTER TABLE jobs ADD COLUMN discovery_kind TEXT"),
+                ("hiring_signal_strength", "ALTER TABLE jobs ADD COLUMN hiring_signal_strength TEXT"),
+                ("source_post_url", "ALTER TABLE jobs ADD COLUMN source_post_url TEXT"),
+                ("recruiter_name", "ALTER TABLE jobs ADD COLUMN recruiter_name TEXT"),
+                ("salary_text", "ALTER TABLE jobs ADD COLUMN salary_text TEXT"),
+            ):
+                if col not in cols:
+                    conn.execute(ddl)
+                    cols.add(col)
             conn.commit()
 
     def insert_job(self, job: JobOpportunity) -> JobOpportunity:

@@ -178,17 +178,25 @@ def parse_hiring_post_html(
     if not analysis.is_hiring_related:
         return []
 
+    roles = split_multi_role_post(text)
     out: list[RawCandidate] = []
-    for snippet, role in split_multi_role_post(text, url, source):
-        a = analyze_hiring_text(snippet, location_hints=location_hints, company_hint=company_hint, title_hint=role)
+    for role in roles:
+        a = analyze_hiring_text(
+            text,
+            location_hints=location_hints,
+            company_hint=company_hint,
+            title_hint=role,
+        )
         if not a.is_hiring_related:
             continue
-        suffix = f"#{role}" if role else ""
+        from urllib.parse import quote
+
+        suffix = f"#role={quote(role)}" if role else ""
         out.append(
             RawCandidate(
                 source=source,
-                source_url=f"{url}{suffix}" if suffix else url,
-                raw_text=snippet,
+                source_url=f"{url.split('#')[0]}{suffix}" if suffix else url,
+                raw_text=text,
                 title_hint=a.job_title or role,
                 company_hint=a.company_name,
                 location_hint=a.location,
@@ -199,6 +207,11 @@ def parse_hiring_post_html(
                 skills_hint=a.skills or None,
                 discovery_kind="hiring_post",
                 html_kind="hiring_post",
+                recruiter_hint=a.recruiter_name,
+                salary_hint=a.salary_text,
+                hiring_signal_strength=a.hiring_signal_strength,
+                employment_type_hint=a.employment_type,
+                source_post_url=url.split("#")[0],
             )
         )
     return out

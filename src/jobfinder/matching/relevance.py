@@ -140,11 +140,16 @@ class RelevanceEngine:
         if edu.graduation_year and str(edu.graduation_year) in text_l:
             breakdown.add("graduation_year", 5.0)
 
-        # Hiring signal
+        # Hiring signal — only meaningful when paired with entry-level/fresher cues
         if job.hiring_signal:
-            breakdown.add("hiring_signal", 8.0)
-        hire_words = ["hiring", "opening", "vacancy", "walk-in", "walk in", "apply"]
-        if any(w in text_l for w in hire_words):
+            if job.is_fresher or job.is_entry_level or _fresher_signals(text_l):
+                breakdown.add("hiring_signal", 8.0)
+            elif job.hiring_signal_strength == "high_hiring_signal":
+                breakdown.add("hiring_signal", 4.0)
+        hire_words = ["walk-in", "walk in", "dm resume", "send resume", "apply here"]
+        if any(w in text_l for w in hire_words) and (
+            job.is_fresher or job.is_entry_level or _fresher_signals(text_l)
+        ):
             breakdown.add("hiring_language", 6.0)
 
         # Application method
@@ -185,6 +190,13 @@ class RelevanceEngine:
 
         if job.experience_min is not None and job.experience_min >= 3:
             breakdown.penalize("experience_min_high", 25.0)
+
+        if job.hiring_signal_strength == "low_hiring_signal":
+            breakdown.penalize("low_hiring_signal", 35.0)
+
+        if not (job.is_fresher or job.is_entry_level or _fresher_signals(text_l)):
+            if job.experience_min is not None and job.experience_min >= 5:
+                breakdown.penalize("senior_experience_required", 30.0)
 
         # Confidence: how much structured data we have
         confidence = 0.0

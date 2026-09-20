@@ -53,8 +53,12 @@ class JobOpportunity(BaseModel):
     is_entry_level: Optional[bool] = None
 
     hiring_signal: Optional[str] = None
+    hiring_signal_strength: Optional[str] = None
 
     discovery_kind: Optional[str] = None  # job_listing | hiring_post
+    source_post_url: Optional[str] = None
+    recruiter_name: Optional[str] = None
+    salary_text: Optional[str] = None
 
     relevance_score: float = 0.0
     confidence_score: float = 0.0
@@ -135,3 +139,7 @@ class RawCandidate(BaseModel):
     skills_hint: Optional[list[str]] = None
     employment_type_hint: Optional[str] = None
     html_kind: Optional[str] = None  # job_listing | hiring_post | search_results
+    recruiter_hint: Optional[str] = None
+    salary_hint: Optional[str] = None
+    hiring_signal_strength: Optional[str] = None
+    source_post_url: Optional[str] = None
