@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     duplicate_group_id TEXT,
     status TEXT NOT NULL DEFAULT 'new',
     freshness_bucket TEXT,
-    alternate_source_urls TEXT
+    alternate_source_urls TEXT,
+    discovery_kind TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_posted ON jobs(posted_at);

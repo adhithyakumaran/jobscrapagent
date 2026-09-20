@@ -101,6 +101,11 @@ def index(
                 "relevance": round(j.relevance_score, 1),
                 "confidence": round(j.confidence_score, 1),
                 "application_method": j.application_method or j.contact_email or "—",
+                "hiring_signal": j.hiring_signal or "—",
+                "discovery_kind": j.discovery_kind or (
+                    "job_listing" if j.source_url and "/jobs/view/" in j.source_url else "hiring_post"
+                ),
+                "posted_exact": j.posted_at.isoformat() if j.posted_at else "Unknown",
                 "source_url": j.source_url,
                 "application_url": j.application_url or j.source_url,
                 "freshness": (

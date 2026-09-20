@@ -151,16 +151,23 @@ class RelevanceEngine:
         if job.application_url or job.contact_email or job.application_method:
             breakdown.add("application_available", 10.0)
 
-        # Freshness
-        bucket = freshness_bucket(job.posted_at)
-        job.freshness_bucket = bucket
-        freshness_points = {
-            "very_new": 15.0,
-            "new": 12.0,
-            "recent": 8.0,
-            "older": 2.0,
-        }
-        breakdown.add("freshness", freshness_points.get(bucket.value, 0))
+        # Freshness (unknown posted time — no invented freshness boost)
+        if job.posted_at:
+            bucket = freshness_bucket(job.posted_at)
+            job.freshness_bucket = bucket
+            freshness_points = {
+                "very_new": 15.0,
+                "new": 12.0,
+                "recent": 8.0,
+                "older": 2.0,
+            }
+            breakdown.add("freshness", freshness_points.get(bucket.value, 0))
+        else:
+            job.freshness_bucket = None
+
+        # LinkedIn primary source — small boost only
+        if job.source and "linkedin" in job.source.lower():
+            breakdown.add("source_linkedin", 3.0)
 
         # Penalties
         excluded = self.profile.candidate.excluded_keywords

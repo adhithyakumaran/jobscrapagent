@@ -4,7 +4,7 @@ import argparse
 import logging
 import sys
 
-from jobfinder.pipeline import run_mock_scan
+from jobfinder.pipeline import run_scan
 from jobfinder.storage.db import Database
 
 
@@ -14,13 +14,17 @@ def _setup_logging(verbose: bool) -> None:
         level=level,
         format="%(message)s",
     )
+    if not verbose:
+        logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 def cmd_scan(args: argparse.Namespace) -> int:
-    if not args.mock:
-        print("Phase 1 supports only mock discovery. Use: python -m jobfinder scan --mock")
+    source = "mock" if args.mock else args.source
+    try:
+        run_scan(source=source, mock=args.mock, max_intents=args.max_intents)
+    except RuntimeError as exc:
+        print(exc)
         return 1
-    run_mock_scan(max_intents=args.max_intents)
     return 0
 
 
@@ -70,8 +74,14 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     scan = sub.add_parser("scan", help="Run discovery scan")
-    scan.add_argument("--mock", action="store_true", help="Use mock discovery (Phase 1)")
-    scan.add_argument("--max-intents", type=int, default=None, help="Cap search intents")
+    scan.add_argument("--mock", action="store_true", help="Use mock discovery")
+    scan.add_argument(
+        "--source",
+        default="linkedin",
+        choices=["linkedin", "mock"],
+        help="Discovery source (default: linkedin)",
+    )
+    scan.add_argument("--max-intents", type=int, default=None, help="Cap search intents / query budget")
     scan.set_defaults(func=cmd_scan)
 
     stats = sub.add_parser("stats", help="Show database statistics")

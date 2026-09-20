@@ -28,6 +28,9 @@ class Database:
             conn.executescript(JOBS_TABLE)
             conn.executescript(SEARCH_RUNS_TABLE)
             conn.executescript(NOTIFICATIONS_TABLE)
+            cols = {row[1] for row in conn.execute("PRAGMA table_info(jobs)")}
+            if "discovery_kind" not in cols:
+                conn.execute("ALTER TABLE jobs ADD COLUMN discovery_kind TEXT")
             conn.commit()
 
     def insert_job(self, job: JobOpportunity) -> JobOpportunity:

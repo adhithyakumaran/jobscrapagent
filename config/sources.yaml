@@ -1,0 +1,15 @@
+linkedin:
+  enabled: true
+  max_pages_per_intent: 1
+  max_results_per_intent: 15
+  detail_fetch_limit_per_intent: 8
+  delay_seconds: 2
+  intent_budget_per_run: 24
+  source_relevance_boost: 3.0
+  providers:
+    - guest
+    - playwright
+    - indexed
+  session_cookie_file: ""
+  playwright_headless: true
+  indexed_search_engine: duckduckgo

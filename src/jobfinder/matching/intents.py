@@ -26,22 +26,26 @@ HIRING_PHRASES = [
     "hiring",
     "we're hiring",
     "we are hiring",
-    "immediate hiring",
-    "immediate joiner",
-    "urgent hiring",
     "job opening",
-    "openings",
+    "job openings",
     "vacancy",
+    "vacancies",
     "recruitment",
+    "immediate hiring",
+    "urgent hiring",
+    "immediate joiner",
     "walk-in",
-    "interview",
-    "careers",
-    "apply now",
+    "walk in",
     "send resume",
     "send CV",
     "DM resume",
-    "interested candidates",
+    "apply now",
     "looking for candidates",
+    "interested candidates",
+    "comment interested",
+    "urgent requirement",
+    "freshers can apply",
+    "multiple openings",
 ]
 
 
@@ -77,6 +81,14 @@ def _role_terms(profile: ProfileConfig) -> list[str]:
     return [r for r in roles if r.strip()]
 
 
+def _experience_phrases_for_profile(profile: ProfileConfig) -> list[str]:
+    phrases = list(EXPERIENCE_PHRASES)
+    year = profile.candidate.education.graduation_year
+    if year:
+        phrases.append(f"{year} graduate")
+    return phrases
+
+
 def generate_search_intents(
     profile: ProfileConfig,
     max_intents: int | None = None,
@@ -84,22 +96,38 @@ def generate_search_intents(
     locations = profile.candidate.locations or ["Remote"]
     domains = _domain_terms(profile)
     roles = _role_terms(profile)
+    experience = _experience_phrases_for_profile(profile)
 
     intents: list[SearchIntent] = []
-    for exp in EXPERIENCE_PHRASES:
+    for exp in experience:
         for hire in HIRING_PHRASES:
             for loc in locations:
-                for dom in domains:
-                    for role in roles:
-                        intents.append(
-                            SearchIntent(
-                                experience_term=exp,
-                                hiring_term=hire,
-                                location=loc,
-                                domain_term=dom,
-                                role_term=role,
-                            )
+                if domains == ["any"] and roles == ["any"]:
+                    intents.append(
+                        SearchIntent(
+                            experience_term=exp,
+                            hiring_term=hire,
+                            location=loc,
+                            domain_term="any",
+                            role_term="any",
                         )
-                        if max_intents and len(intents) >= max_intents:
-                            return intents
+                    )
+                    if max_intents and len(intents) >= max_intents:
+                        return intents
+                else:
+                    dom_iter = domains if domains != ["any"] else ["any"]
+                    role_iter = roles if roles != ["any"] else ["any"]
+                    for dom in dom_iter:
+                        for role in role_iter:
+                            intents.append(
+                                SearchIntent(
+                                    experience_term=exp,
+                                    hiring_term=hire,
+                                    location=loc,
+                                    domain_term=dom,
+                                    role_term=role,
+                                )
+                            )
+                            if max_intents and len(intents) >= max_intents:
+                                return intents
     return intents

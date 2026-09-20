@@ -54,6 +54,8 @@ class JobOpportunity(BaseModel):
 
     hiring_signal: Optional[str] = None
 
+    discovery_kind: Optional[str] = None  # job_listing | hiring_post
+
     relevance_score: float = 0.0
     confidence_score: float = 0.0
 
@@ -129,3 +131,7 @@ class RawCandidate(BaseModel):
     application_method: Optional[str] = None
     contact_email: Optional[str] = None
     domain_hint: Optional[str] = None
+    discovery_kind: Optional[str] = None
+    skills_hint: Optional[list[str]] = None
+    employment_type_hint: Optional[str] = None
+    html_kind: Optional[str] = None  # job_listing | hiring_post | search_results

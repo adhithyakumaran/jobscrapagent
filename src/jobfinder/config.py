@@ -61,3 +61,35 @@ def is_any(values: list[str]) -> bool:
         return True
     normalized = {v.strip().lower() for v in values}
     return "any" in normalized or "*" in normalized
+
+
+class LinkedInSourceConfig(BaseModel):
+    enabled: bool = True
+    max_pages_per_intent: int = 3
+    max_results_per_intent: int = 50
+    detail_fetch_limit_per_intent: int = 10
+    delay_seconds: float = 2.0
+    intent_budget_per_run: int = 24
+    source_relevance_boost: float = 3.0
+    providers: list[str] = Field(default_factory=lambda: ["guest", "playwright", "indexed"])
+    session_cookie_file: str = ""
+    playwright_headless: bool = True
+    indexed_search_engine: str = "duckduckgo"
+
+
+class SourcesConfig(BaseModel):
+    linkedin: LinkedInSourceConfig = Field(default_factory=LinkedInSourceConfig)
+
+
+def default_sources_path() -> Path:
+    root = Path(__file__).resolve().parents[2]
+    return root / "config" / "sources.yaml"
+
+
+def load_sources(path: Path | None = None) -> SourcesConfig:
+    sources_path = path or default_sources_path()
+    if not sources_path.exists():
+        return SourcesConfig()
+    with open(sources_path, encoding="utf-8") as f:
+        raw: dict[str, Any] = yaml.safe_load(f) or {}
+    return SourcesConfig.model_validate(raw)

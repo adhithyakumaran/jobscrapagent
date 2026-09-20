@@ -22,7 +22,7 @@
 </head>
 <body>
   <h1>Personal Job Finder</h1>
-  <p class="sub">Phase 1 — mock discovery. Prioritize fresh, relevant leads.</p>
+  <p class="sub">LinkedIn-first discovery — jobs and hiring posts.</p>
 
   <form class="filters" method="get" action="/">
     <label>View</label>
@@ -53,7 +53,9 @@
         <th>Location</th>
         <th>Exp</th>
         <th>Source</th>
+        <th>Type</th>
         <th>Posted</th>
+        <th>Signal</th>
         <th>Rel.</th>
         <th>Apply</th>
         <th>Actions</th>
@@ -68,7 +70,9 @@
         <td>{{ j.location }}</td>
         <td>{{ j.experience }}</td>
         <td><span class="pill">{{ j.source }}</span></td>
-        <td>{{ j.posted }}</td>
+        <td>{{ j.discovery_kind }}</td>
+        <td title="{{ j.posted_exact }}">{{ j.posted }}</td>
+        <td>{{ j.hiring_signal }}</td>
         <td>{{ j.relevance }}</td>
         <td>{{ j.application_method }}</td>
         <td class="actions">
@@ -79,7 +83,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="10">No jobs match. Run <code>python -m jobfinder scan --mock</code>.</td></tr>
+      <tr><td colspan="12">No jobs match. Run <code>python -m jobfinder scan</code> or <code>--mock</code>.</td></tr>
       {% endfor %}
     </tbody>
   </table>
