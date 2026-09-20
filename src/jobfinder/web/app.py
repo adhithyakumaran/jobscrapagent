@@ -7,6 +7,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from jobfinder.actionable import build_job_actions, has_actionable_path
 from jobfinder.freshness import FRESHNESS_EMOJI, FRESHNESS_LABELS
 from jobfinder.models import JobStatus
 from jobfinder.storage.db import Database
@@ -54,6 +55,49 @@ def _experience_label(job) -> str:
     return "—"
 
 
+def _job_to_row(j) -> dict | None:
+    if not has_actionable_path(j):
+        return None
+    actions = build_job_actions(j)
+    bucket = j.freshness_bucket
+    return {
+        "id": j.id,
+        "company": j.company_name or "—",
+        "title": j.job_title or "(Hiring post)",
+        "location": j.location or "—",
+        "experience": _experience_label(j),
+        "source": j.source,
+        "posted": _format_posted(j.posted_at),
+        "relevance": round(j.relevance_score, 1),
+        "confidence": round(j.confidence_score, 1),
+        "hiring_signal": j.hiring_signal or "—",
+        "discovery_kind": j.discovery_kind or (
+            "job_listing" if j.source_url and "/jobs/view/" in j.source_url else "hiring_post"
+        ),
+        "posted_exact": j.posted_at.isoformat() if j.posted_at else "Unknown",
+        "source_url": j.source_url,
+        "application_url": j.application_url,
+        "contact_email": j.contact_email,
+        "contact_phone": j.contact_phone,
+        "application_method": j.application_method,
+        "application_summary": actions["application_summary"],
+        "open_label": actions["open_label"],
+        "open_url": actions["open_url"],
+        "apply_url": actions["apply_url"],
+        "show_apply": actions["show_apply"],
+        "mailto": actions["mailto"],
+        "email_label": actions["email_label"],
+        "search_url": actions["search_url"],
+        "alternate_urls": actions["alternate_urls"],
+        "freshness": (
+            f"{FRESHNESS_EMOJI.get(bucket, '')} {FRESHNESS_LABELS.get(bucket, '')}"
+            if bucket
+            else "—"
+        ),
+        "status": j.status.value if hasattr(j.status, "value") else j.status,
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(
     request: Request,
@@ -88,34 +132,9 @@ def index(
 
     rows = []
     for j in jobs:
-        bucket = j.freshness_bucket
-        rows.append(
-            {
-                "id": j.id,
-                "company": j.company_name or "—",
-                "title": j.job_title or "(Hiring post)",
-                "location": j.location or "—",
-                "experience": _experience_label(j),
-                "source": j.source,
-                "posted": _format_posted(j.posted_at),
-                "relevance": round(j.relevance_score, 1),
-                "confidence": round(j.confidence_score, 1),
-                "application_method": j.application_method or j.contact_email or "—",
-                "hiring_signal": j.hiring_signal or "—",
-                "discovery_kind": j.discovery_kind or (
-                    "job_listing" if j.source_url and "/jobs/view/" in j.source_url else "hiring_post"
-                ),
-                "posted_exact": j.posted_at.isoformat() if j.posted_at else "Unknown",
-                "source_url": j.source_url,
-                "application_url": j.application_url or j.source_url,
-                "freshness": (
-                    f"{FRESHNESS_EMOJI.get(bucket, '')} {FRESHNESS_LABELS.get(bucket, '')}"
-                    if bucket
-                    else "—"
-                ),
-                "status": j.status.value if hasattr(j.status, "value") else j.status,
-            }
-        )
+        row = _job_to_row(j)
+        if row:
+            rows.append(row)
 
     return templates.TemplateResponse(
         request,

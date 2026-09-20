@@ -11,6 +11,7 @@ from jobfinder.discovery.linkedin.composite import LinkedInCompositeProvider
 from jobfinder.discovery.mock import MockDiscoveryProvider
 from jobfinder.discovery.planner import plan_search_intents
 from jobfinder.extraction.hiring import analyze_hiring_text
+from jobfinder.actionable import has_actionable_path
 from jobfinder.extraction.normalizer import raw_to_opportunity
 from jobfinder.matching.intents import generate_search_intents
 from jobfinder.matching.relevance import RelevanceEngine
@@ -96,6 +97,10 @@ def _ingest_candidates(
 
         job = raw_to_opportunity(raw)
         stats.parsed += 1
+
+        if not has_actionable_path(job):
+            stats.rejected += 1
+            continue
 
         if job.discovery_kind == "job_listing" or (
             job.source_url and "/jobs/view/" in job.source_url

@@ -118,7 +118,17 @@ def parse_job_detail_html(html: str, url: str, source: str = "linkedin") -> RawC
             posted = parse_relative_posted(time_el.get_text(strip=True))
 
     apply_el = soup.select_one("a[data-tracking-control-name='public_jobs_apply-link'], a.jobs-apply-button")
-    app_url = apply_el.get("href") if apply_el else url
+    app_url = None
+    app_method = None
+    if apply_el and apply_el.get("href"):
+        href = apply_el.get("href", "")
+        if href.startswith("/"):
+            href = urljoin("https://www.linkedin.com", href)
+        app_url = href
+        if "linkedin.com" in href.lower():
+            app_method = "linkedin_apply"
+        else:
+            app_method = "external_apply"
 
     description = desc_el.get_text("\n", strip=True) if desc_el else soup.get_text("\n", strip=True)[:4000]
     ld = soup.find("script", type="application/ld+json")
@@ -136,14 +146,14 @@ def parse_job_detail_html(html: str, url: str, source: str = "linkedin") -> RawC
 
     return RawCandidate(
         source=source,
-        source_url=url,
+        source_url=url.split("#")[0] if url else url,
         raw_text=description,
         title_hint=title,
         company_hint=company,
         location_hint=location,
         posted_at=posted,
         application_url=app_url,
-        application_method="linkedin_apply" if apply_el else None,
+        application_method=app_method,
         discovery_kind="job_listing",
         employment_type_hint=employment_type,
         html_kind="job_listing",

@@ -93,11 +93,36 @@ class DeduplicationService:
         return DedupResult(False)
 
     def merge_duplicate(self, canonical: JobOpportunity, duplicate: JobOpportunity) -> JobOpportunity:
-        if duplicate.source_url and duplicate.source_url not in (
-            canonical.source_url,
-            *canonical.alternate_source_urls,
-        ):
-            canonical.alternate_source_urls.append(duplicate.source_url)
+        def _add_alt(url: str | None) -> None:
+            if not url:
+                return
+            if url in (canonical.source_url, duplicate.source_url):
+                pass
+            if url == canonical.source_url:
+                return
+            if url not in canonical.alternate_source_urls and url != canonical.source_url:
+                canonical.alternate_source_urls.append(url)
+
+        _add_alt(duplicate.source_url)
+        for alt in duplicate.alternate_source_urls:
+            _add_alt(alt)
+
+        if duplicate.application_url:
+            if not canonical.application_url:
+                canonical.application_url = duplicate.application_url
+            elif duplicate.application_url != canonical.application_url:
+                _add_alt(duplicate.application_url)
+
+        if duplicate.source_post_url and not canonical.source_post_url:
+            canonical.source_post_url = duplicate.source_post_url
+
+        if duplicate.contact_email and not canonical.contact_email:
+            canonical.contact_email = duplicate.contact_email
+        if duplicate.contact_phone and not canonical.contact_phone:
+            canonical.contact_phone = duplicate.contact_phone
+        if duplicate.application_method and not canonical.application_method:
+            canonical.application_method = duplicate.application_method
+
         if not canonical.duplicate_group_id:
             canonical.duplicate_group_id = canonical.id or str(uuid.uuid4())
         duplicate.duplicate_group_id = canonical.duplicate_group_id
