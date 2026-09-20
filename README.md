@@ -4,7 +4,7 @@ Local job-discovery tool — Phase 1 (mock) + Phase 2 (LinkedIn discovery).
 
 ## Setup
 
-Requires **Python 3.11+** (`python --version`).
+Requires **Python 3.10+** (`python --version`).
 
 ```bash
 git clone https://github.com/adhithyakumaran/jobscrapagent.git
